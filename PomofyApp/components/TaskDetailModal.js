@@ -8,17 +8,17 @@ import {
   Modal,
   SafeAreaView
 } from 'react-native';
+import Animated, { ZoomIn, FadeOut } from 'react-native-reanimated';
 
-// Añadimos la prop 'onEdit'
-export default function TaskDetailModal({ task, visible, onClose, onEdit }) {
+// Recibimos 'onDelete'
+export default function TaskDetailModal({ task, visible, onClose, onEdit, onDelete }) {
   
-  if (!task) return null;
+  if (!task || !visible) return null;
 
   const handleEditPress = () => {
-    onClose(); // 1. Cerramos este modal de detalles
-    // 2. Esperamos un momento pequeño y llamamos a editar
+    onClose();
     setTimeout(() => {
-        onEdit(task); // Le decimos al padre: "Quiero editar ESTA tarea"
+        onEdit(task);
     }, 100);
   };
 
@@ -28,9 +28,15 @@ export default function TaskDetailModal({ task, visible, onClose, onEdit }) {
       `¿Estás seguro de que quieres eliminar "${task.title}"?`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar', style: 'destructive', onPress: () => {
-            Alert.alert('Éxito', `"${task.title}" ha sido eliminada.`);
-            onClose();
+        { 
+          text: 'Eliminar', 
+          style: 'destructive', 
+          onPress: () => {
+            // --- ¡AQUÍ ESTÁ EL CAMBIO! ---
+            // Llamamos a la función real de borrar
+            if (onDelete) {
+                onDelete(task.id);
+            }
           }
         },
       ]
@@ -39,54 +45,52 @@ export default function TaskDetailModal({ task, visible, onClose, onEdit }) {
 
   return (
     <Modal
-      animationType="slide"
+      animationType="none"
       transparent={true}
-      visible={visible}
+      visible={true}
       onRequestClose={onClose}
     >
-      <TouchableOpacity 
-        style={styles.modalBackdrop} 
-        activeOpacity={1} 
-        onPress={onClose} 
-      >
-        <TouchableOpacity activeOpacity={1} style={styles.modalContent}>
-          <SafeAreaView>
-            <Text style={styles.label}>TAREA:</Text>
-            <Text style={styles.infoText}>{task.title}</Text>
-            <Text style={styles.label}>MATERIA:</Text>
-            <Text style={styles.infoText}>{task.subject}</Text>
-            <Text style={styles.label}>FECHA LÍMITE:</Text>
-            <Text style={styles.infoText}>{task.date}</Text>
-            <Text style={styles.label}>DESCRIPCIÓN:</Text>
-            <Text style={styles.descriptionText}>{task.description}</Text>
+      <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={onClose}>
+        <Animated.View
+            entering={ZoomIn.springify().damping(20).stiffness(300).mass(0.5)}
+            exiting={FadeOut.duration(150)}
+            style={{ width: '100%', alignItems: 'center' }}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.modalContent}>
+            <SafeAreaView>
+              <Text style={styles.label}>TAREA:</Text>
+              <Text style={styles.infoText}>{task.title}</Text>
+              <Text style={styles.label}>MATERIA:</Text>
+              <Text style={styles.infoText}>{task.subject}</Text>
+              <Text style={styles.label}>FECHA LÍMITE:</Text>
+              <Text style={styles.infoText}>{task.date}</Text>
+              <Text style={styles.label}>DESCRIPCIÓN:</Text>
+              <Text style={styles.descriptionText}>{task.description}</Text>
 
-            <View style={styles.buttonContainer}>
-              {/* Botón Editar conectado */}
-              <TouchableOpacity style={[styles.button, styles.editButton]} onPress={handleEditPress}>
-                <Text style={styles.buttonText}>Editar</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={[styles.button, styles.deleteButton]} onPress={handleDelete}>
-                <Text style={styles.buttonText}>Eliminar</Text>
-              </TouchableOpacity>
-            </View>
-
-          </SafeAreaView>
-        </TouchableOpacity>
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity style={[styles.button, styles.editButton]} onPress={handleEditPress}>
+                  <Text style={styles.buttonText}>Editar</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={[styles.button, styles.deleteButton]} onPress={handleDelete}>
+                  <Text style={styles.buttonText}>Eliminar</Text>
+                </TouchableOpacity>
+              </View>
+            </SafeAreaView>
+          </TouchableOpacity>
+        </Animated.View>
       </TouchableOpacity>
     </Modal>
   );
 };
 
-// ... (Tus estilos anteriores se mantienen igual, asegúrate de copiarlos aquí abajo) ...
-// Para no hacer el mensaje eterno, usa los estilos que ya tenías en TaskDetailModal.js
 const styles = StyleSheet.create({
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#113142', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 }, // <-- OJO: Usé tu color #113142
-  label: { color: '#aaa', fontSize: 12, fontWeight: 'bold', marginBottom: 2, marginTop: 15 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.7)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { backgroundColor: '#113142', borderRadius: 20, padding: 25, width: '85%', shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5 },
+  label: { color: '#ccc', fontSize: 12, fontWeight: 'bold', marginBottom: 2, marginTop: 15 },
   infoText: { color: 'white', fontSize: 22, fontWeight: 'bold' },
-  descriptionText: { color: '#ddd', fontSize: 16, fontStyle: 'italic', marginTop: 5 },
-  buttonContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30 },
+  descriptionText: { color: '#ddd', fontSize: 16, fontStyle: 'italic', marginTop: 5, marginBottom: 10 },
+  buttonContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
   button: { borderRadius: 15, paddingVertical: 15, flex: 1, alignItems: 'center' },
   editButton: { backgroundColor: '#FFA000', marginRight: 10 },
   deleteButton: { backgroundColor: '#D32F2F', marginLeft: 10 },

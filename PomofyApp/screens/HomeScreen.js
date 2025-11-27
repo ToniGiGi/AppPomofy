@@ -8,13 +8,19 @@ import {
 } from 'react-native';
 import { TouchableOpacity, FlatList } from 'react-native-gesture-handler';
 import { MaterialIcons } from '@expo/vector-icons';
+
+// Controlador de Base de Datos
+import { TasksController } from '../controllers/TasksController';
+
+// Modales
 import TaskModal from '../components/TaskModal';
 import TaskDetailModal from '../components/TaskDetailModal';
 
-// --- ¡LISTA COMPLETA RESTAURADA! ---
+const STORAGE_KEY = '@pomofy_tasks_final_v1';
+
+// Datos Semilla
 const INITIAL_TASKS = [
   { 
-    id: 't1', 
     title: 'PAST SIMPLE', 
     subject: 'Ingles', 
     date: '2/11/2025', 
@@ -22,7 +28,6 @@ const INITIAL_TASKS = [
     description: 'Me quiero dedicar a estudiar Past Simple para poder pasar el examen. Repasar verbos regulares e irregulares.' 
   },
   { 
-    id: 't2', 
     title: 'SUMA RIEMANN', 
     subject: 'Calculo', 
     date: '31/10/2025', 
@@ -30,7 +35,6 @@ const INITIAL_TASKS = [
     description: 'Repasar la teoría de la Suma de Riemann y hacer los 10 ejercicios de la guía que dejó el profesor.'
   },
   { 
-    id: 't3', 
     title: 'ALGORITMOS', 
     subject: 'Programación', 
     date: '25/10/2025', 
@@ -38,7 +42,6 @@ const INITIAL_TASKS = [
     description: 'Diseñar el algoritmo de ordenamiento burbuja y probarlo con 5 arreglos diferentes.'
   },
   { 
-    id: 't4', 
     title: 'FACTORIZAR', 
     subject: 'Algebra', 
     date: '15/10/2025', 
@@ -46,7 +49,6 @@ const INITIAL_TASKS = [
     description: 'Terminar la guía de factorización por término común y trinomio cuadrado perfecto.'
   },
   { 
-    id: 't5', 
     title: 'ENSAYO FINAL', 
     subject: 'Literatura', 
     date: '10/11/2025', 
@@ -54,7 +56,6 @@ const INITIAL_TASKS = [
     description: 'Escribir el ensayo de 5 cuartillas sobre "Cien Años de Soledad".'
   },
   { 
-    id: 't6', 
     title: 'EXAMEN UNIDAD 1', 
     subject: 'Física', 
     date: '1/11/2025', 
@@ -62,19 +63,43 @@ const INITIAL_TASKS = [
     description: 'Estudiar los temas de vectores y movimiento rectilíneo uniforme.'
   },
 ];
-// -----------------------------------
 
 export default function HomeScreen() {
   
   const [activeFilter, setActiveFilter] = useState('Todas');
-  const [tasks, setTasks] = useState(INITIAL_TASKS);
-  const [filteredTasks, setFilteredTasks] = useState(tasks);
+  const [tasks, setTasks] = useState([]); 
+  const [filteredTasks, setFilteredTasks] = useState([]);
   
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  
   const [selectedTask, setSelectedTask] = useState(null);
   const [taskToEdit, setTaskToEdit] = useState(null);
 
+  // --- CARGAR DATOS ---
+  const loadData = async () => {
+    try {
+      await TasksController.initTable(); 
+      let dbTasks = await TasksController.getTasks(); 
+      
+      if (dbTasks.length === 0) {
+        console.log("Base de datos vacía. Insertando datos iniciales...");
+        for (const task of INITIAL_TASKS) {
+          await TasksController.addTask(task.title, task.subject, task.date, task.status, task.description);
+        }
+        dbTasks = await TasksController.getTasks();
+      }
+      setTasks(dbTasks); 
+    } catch (e) {
+      console.error("Error cargando base de datos:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // --- FILTRADO ---
   useEffect(() => {
     let newFilteredList;
     if (activeFilter === 'Todas') newFilteredList = tasks;
@@ -83,44 +108,61 @@ export default function HomeScreen() {
     setFilteredTasks(newFilteredList);
   }, [activeFilter, tasks]);
 
-  const handleChangeStatus = (taskId) => {
-    setTasks(currentTasks => currentTasks.map(task => task.id === taskId ? 
-      { ...task, status: task.status === 'active' ? 'process' : task.status === 'process' ? 'done' : 'active' } : task
-    ));
-  };
-  
-  const handleOpenAddModal = () => {
-    setTaskToEdit(null);
-    setAddModalVisible(true);
+  // --- MANEJADORES ---
+
+  const handleChangeStatus = async (taskId) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    let nextStatus;
+    if (task.status === 'active') nextStatus = 'process';
+    else if (task.status === 'process') nextStatus = 'done';
+    else nextStatus = 'active';
+
+    try {
+      await TasksController.updateTaskStatus(taskId, nextStatus);
+      loadData(); 
+    } catch (e) {
+      console.error("Error actualizando estado:", e);
+    }
   };
 
-  const handleOpenDetailModal = (task) => {
-    setSelectedTask(task);
-    setDetailModalVisible(true);
+  const handleAddTask = async (newTask) => {
+    try {
+      await TasksController.addTask(newTask.title, newTask.subject, newTask.date, newTask.status, newTask.description);
+      loadData();
+      setAddModalVisible(false);
+    } catch (e) {
+      console.error("Error agregando tarea:", e);
+    }
   };
 
-  // Función para preparar la edición
-  const triggerEdit = (task) => {
-    setTaskToEdit(task);
-    setAddModalVisible(true);
+  const handleSaveEditedTask = async (editedTask) => {
+    try {
+      await TasksController.updateTaskFull(editedTask.id, editedTask.title, editedTask.subject, editedTask.date, editedTask.description);
+      loadData();
+      setAddModalVisible(false);
+      setTaskToEdit(null);
+    } catch (e) {
+      console.error("Error editando tarea:", e);
+    }
   };
 
-  // Función para guardar NUEVA tarea
-  const handleAddTask = (newTask) => {
-    setTasks(current => [newTask, ...current]);
-    setAddModalVisible(false);
+  // --- FUNCIÓN DE ELIMINAR ---
+  const handleDeleteTask = async (taskId) => {
+    try {
+      await TasksController.deleteTask(taskId); // Borra de la BD
+      loadData(); // Recarga la lista
+      setDetailModalVisible(false); // Cierra el modal
+    } catch (e) {
+      console.error("Error eliminando tarea:", e);
+    }
   };
 
-  // Función para guardar tarea EDITADA
-  const handleSaveEditedTask = (editedTask) => {
-    setTasks(currentTasks => 
-      currentTasks.map(task => 
-        task.id === editedTask.id ? editedTask : task
-      )
-    );
-    setAddModalVisible(false);
-    setTaskToEdit(null);
-  };
+  // --- UI ---
+  const handleOpenAddModal = () => { setTaskToEdit(null); setAddModalVisible(true); };
+  const handleOpenDetailModal = (task) => { setSelectedTask(task); setDetailModalVisible(true); };
+  const triggerEdit = (task) => { setTaskToEdit(task); setAddModalVisible(true); };
   
   const renderTaskCard = ({ item }) => {
     let circleStyle;
@@ -129,7 +171,7 @@ export default function HomeScreen() {
     else circleStyle = styles.taskStatusCircle_Done;
 
     return (
-      <TouchableOpacity style={styles.taskCard} onPress={() => handleOpenDetailModal(item)}>
+      <TouchableOpacity style={styles.taskCard} onPress={() => handleOpenDetailModal(item)} activeOpacity={0.9}>
         <View style={styles.taskInfo}>
           <Text style={styles.taskTitle}>{item.title}</Text>
           <Text style={styles.taskSubtitle}>{item.subject} - {item.date}</Text>
@@ -152,22 +194,13 @@ export default function HomeScreen() {
         <View style={styles.filterSection}>
             <Text style={styles.sectionTitle}>ORDENAR</Text>
             <View style={styles.filterButtons}>
-              <TouchableOpacity 
-                style={[ styles.filterButton, activeFilter === 'Todas' && styles.filterActive_Todas ]}
-                onPress={() => setActiveFilter('Todas')}
-              >
+              <TouchableOpacity style={[ styles.filterButton, activeFilter === 'Todas' && styles.filterActive_Todas ]} onPress={() => setActiveFilter('Todas')}>
                 <Text style={[styles.filterText, activeFilter === 'Todas' && styles.filterTextActive]}>Todas</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[ styles.filterButton, activeFilter === 'En proceso' && styles.filterActive_EnProceso ]}
-                onPress={() => setActiveFilter('En proceso')}
-              >
+              <TouchableOpacity style={[ styles.filterButton, activeFilter === 'En proceso' && styles.filterActive_EnProceso ]} onPress={() => setActiveFilter('En proceso')}>
                 <Text style={[styles.filterText, activeFilter === 'En proceso' && styles.filterTextActive]}>En proceso</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[ styles.filterButton, activeFilter === 'Terminadas' && styles.filterActive_Terminadas ]}
-                onPress={() => setActiveFilter('Terminadas')}
-              >
+              <TouchableOpacity style={[ styles.filterButton, activeFilter === 'Terminadas' && styles.filterActive_Terminadas ]} onPress={() => setActiveFilter('Terminadas')}>
                 <Text style={[styles.filterText, activeFilter === 'Terminadas' && styles.filterTextActive]}>Terminadas</Text>
               </TouchableOpacity>
             </View>
@@ -177,9 +210,10 @@ export default function HomeScreen() {
         <FlatList
           data={filteredTasks}
           renderItem={renderTaskCard}
-          keyExtractor={item => item.id}
+          keyExtractor={item => item.id.toString()}
           style={styles.taskList}
           showsVerticalScrollIndicator={false}
+          ListEmptyComponent={<Text style={styles.emptyListText}>No tienes tareas guardadas.</Text>}
         />
       </View>
 
@@ -191,11 +225,13 @@ export default function HomeScreen() {
         taskToEdit={taskToEdit}
       />
       
+      {/* Modal Detalles con DELETE conectado */}
       <TaskDetailModal
         task={selectedTask}
         visible={detailModalVisible}
         onClose={() => setDetailModalVisible(false)}
         onEdit={triggerEdit}
+        onDelete={handleDeleteTask} // <-- ¡AQUÍ ESTÁ LA CONEXIÓN!
       />
       
     </SafeAreaView>
