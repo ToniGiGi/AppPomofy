@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -7,22 +7,35 @@ import {
   TouchableOpacity, 
   Alert,
   Modal,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform 
 } from 'react-native';
-// --- ¡Volvemos a importar el Date Picker! ---
 import DateTimePicker from '@react-native-community/datetimepicker';
+// 1. Importamos Reanimated para el POP
+import Animated, { ZoomIn, FadeOut } from 'react-native-reanimated';
 
-// --- ¡NUEVAS PROPS! ---
-export default function TaskModal({ visible, onAddTask, onClose }) {
+export default function TaskModal({ visible, onAddTask, onEditTask, onClose, taskToEdit }) {
+  
   const [titulo, setTitulo] = useState('');
   const [materia, setMateria] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  
-  // --- Lógica de Fecha ---
   const [date, setDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      if (taskToEdit) {
+        setTitulo(taskToEdit.title);
+        setMateria(taskToEdit.subject);
+        setDescripcion(taskToEdit.description);
+      } else {
+        setTitulo('');
+        setMateria('');
+        setDescripcion('');
+        setDate(new Date());
+      }
+    }
+  }, [visible, taskToEdit]);
 
   const onChangeDate = (event, selectedDate) => {
     const currentDate = selectedDate || date;
@@ -33,118 +46,128 @@ export default function TaskModal({ visible, onAddTask, onClose }) {
   const showDatepicker = () => {
     setShowPicker(true);
   };
-  // --- Fin Lógica de Fecha ---
 
-  // Limpia los campos
-  const cleanFields = () => {
-    setTitulo('');
-    setMateria('');
-    setDescripcion('');
-    setDate(new Date());
-  };
-
-  const handleConfirmar = () => {
-    if (!titulo || !materia || !date) {
-      Alert.alert('Error', 'Título, materia y fecha son obligatorios.');
-      return;
-    }
-    
-    // --- ¡LA LÓGICA CLAVE! ---
-    // 1. Creamos el objeto de la nueva tarea
-    const newTask = {
-      id: Date.now().toString(), // Un ID único basado en la fecha actual
-      title: titulo,
-      subject: materia,
-      date: date.toLocaleDateString(), // Formateamos la fecha
-      status: 'active', // <-- ¡Nuevas tareas son 'active' (azul) por defecto!
-      description: descripcion || 'Sin descripción.', // Añadimos la descripción
-    };
-
-    // 2. Llamamos a la función del padre (HomeScreen)
-    onAddTask(newTask);
-
-    // 3. Limpiamos y cerramos
-    cleanFields();
-  };
-
-  // Esta función se llama al "tocar afuera" o presionar "atrás"
-  const handleClose = () => {
-    cleanFields(); // Limpiamos por si el usuario dejó algo escrito
+  const cleanUpAndClose = () => {
     onClose();
   };
 
+  const handleConfirmar = () => {
+    if (!titulo || !materia) {
+      Alert.alert('Error', 'El título y la materia son obligatorios.');
+      return;
+    }
+    
+    const taskData = {
+      title: titulo,
+      subject: materia,
+      date: date.toLocaleDateString(),
+      description: descripcion || 'Sin descripción.',
+      status: taskToEdit ? taskToEdit.status : 'active',
+      id: taskToEdit ? taskToEdit.id : Date.now().toString(),
+    };
+
+    if (taskToEdit) {
+      onEditTask(taskData);
+      Alert.alert('Actualizado', 'Tu tarea ha sido modificada.');
+    } else {
+      onAddTask(taskData);
+      Alert.alert('¡Éxito!', 'Nueva tarea creada.');
+    }
+    
+    cleanUpAndClose();
+  };
+
+  if (!visible) return null;
+
   return (
     <Modal
-      animationType="slide"
+      animationType="none" // Quitamos la animación nativa
       transparent={true}
-      visible={visible}
-      onRequestClose={handleClose} 
+      visible={true}
+      onRequestClose={cleanUpAndClose}
     >
+      {/* KeyboardAvoidingView para que el teclado empuje el modal hacia arriba */}
       <KeyboardAvoidingView 
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.modalBackdrop}
+        style={{ flex: 1 }}
       >
         <TouchableOpacity 
           style={styles.modalBackdrop} 
           activeOpacity={1} 
-          onPress={handleClose} 
+          onPress={cleanUpAndClose} 
         >
-          <TouchableOpacity activeOpacity={1} style={styles.modalContent}>
-            <SafeAreaView>
+          {/* --- ANIMACIÓN POP --- */}
+          <Animated.View
+            entering={ZoomIn.springify().damping(20).stiffness(300).mass(0.5)}
+            exiting={FadeOut.duration(150)}
+            style={{ width: '100%', alignItems: 'center' }}
+          >
+            {/* Contenido del Modal (Tarjeta Azul Oscuro) */}
+            <TouchableOpacity activeOpacity={1} style={styles.modalContent}>
+                
+              <Text style={styles.modalTitle}>
+                {taskToEdit ? "EDITAR TAREA" : "NUEVA TAREA"}
+              </Text>
+
               <TextInput
                 style={styles.input}
                 placeholder="Título de tarea"
-                placeholderTextColor="#eee"
+                placeholderTextColor="#aaa"
                 value={titulo}
                 onChangeText={setTitulo}
               />
               <TextInput
                 style={styles.input}
                 placeholder="Materia"
-                placeholderTextColor="#eee"
+                placeholderTextColor="#aaa"
                 value={materia}
                 onChangeText={setMateria}
               />
               
-              <TextInput
-                style={[styles.input, styles.inputDescripcion]}
-                placeholder="Descripción (opcional)"
-                placeholderTextColor="#eee"
-                multiline={true}
-                numberOfLines={4}
-                value={descripcion}
-                onChangeText={setDescripcion}
-              />
-
-              {/* --- ¡NUEVO! Botón para Fecha (al final) --- */}
               <TouchableOpacity onPress={showDatepicker} style={styles.dateButton}>
                 <Text style={styles.dateButtonText}>
                   Fecha límite: {date.toLocaleDateString()}
                 </Text>
               </TouchableOpacity>
               
-              {/* El DatePicker para iOS (se muestra encima del formulario) */}
               {showPicker && Platform.OS === 'ios' && (
                 <DateTimePicker
                   testID="dateTimePicker"
                   value={date}
                   mode={'date'}
-                  display="default"
+                  display="spinner"
                   onChange={onChangeDate}
+                  textColor="white"
                 />
               )}
 
-              {/* --- Botón Confirmar (Ocupa todo el ancho) --- */}
-              <TouchableOpacity style={styles.confirmButton} onPress={handleConfirmar}>
-                <Text style={styles.confirmButtonText}>Confirmar</Text>
-              </TouchableOpacity>
+              <TextInput
+                style={[styles.input, styles.inputDescripcion]}
+                placeholder="Descripción (opcional)"
+                placeholderTextColor="#aaa"
+                multiline={true}
+                numberOfLines={4}
+                value={descripcion}
+                onChangeText={setDescripcion}
+              />
 
-            </SafeAreaView>
-          </TouchableOpacity>
+              <View style={styles.buttonRow}>
+                <TouchableOpacity style={styles.cancelButton} onPress={cleanUpAndClose}>
+                  <Text style={styles.buttonText}>Cancelar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.confirmButton} onPress={handleConfirmar}>
+                  <Text style={styles.buttonText}>
+                    {taskToEdit ? "Guardar" : "Confirmar"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+            </TouchableOpacity>
+          </Animated.View>
         </TouchableOpacity>
       </KeyboardAvoidingView>
 
-      {/* El DatePicker para Android (es un modal separado) */}
       {showPicker && Platform.OS === 'android' && (
          <DateTimePicker
             testID="dateTimePicker"
@@ -158,56 +181,82 @@ export default function TaskModal({ visible, onAddTask, onClose }) {
   );
 };
 
-// --- ESTILOS (MODIFICADOS) ---
 const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center', // Centrado vertical
+    alignItems: 'center',     // Centrado horizontal
   },
   modalContent: {
-    backgroundColor: '#1ABC9C', // Tu color turquesa
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
+    backgroundColor: '#113142', // Tu Azul Oscuro
+    borderRadius: 20,
+    padding: 25,
+    width: '85%', // Ancho del modal
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+    marginBottom: 20,
+    letterSpacing: 1,
   },
   input: {
     backgroundColor: 'white',
-    borderRadius: 15,
+    borderRadius: 10,
     fontSize: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
     paddingVertical: 12,
     marginBottom: 15,
     color: '#333',
   },
   inputDescripcion: {
-    height: 100,
+    height: 80,
     textAlignVertical: 'top',
     paddingTop: 12,
   },
-  dateButton: { // <-- Estilo para el botón de fecha
-    backgroundColor: 'white',
-    borderRadius: 15,
-    paddingHorizontal: 20,
+  dateButton: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 10,
+    paddingHorizontal: 15,
     paddingVertical: 15,
     marginBottom: 15,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)'
   },
   dateButtonText: {
-    color: '#333',
+    color: 'white',
     fontSize: 16,
   },
-  confirmButton: {
-    backgroundColor: '#FF6B6B', // Tu color coral
-    borderRadius: 15,
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  cancelButton: {
+    backgroundColor: '#555',
+    borderRadius: 10,
     paddingVertical: 15,
     alignItems: 'center',
-    marginTop: 10,
-    width: '100%',
+    width: '48%',
   },
-  confirmButtonText: {
+  confirmButton: {
+    backgroundColor: '#FF6B6B',
+    borderRadius: 10,
+    paddingVertical: 15,
+    alignItems: 'center',
+    width: '48%',
+  },
+  buttonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });
