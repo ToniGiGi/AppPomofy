@@ -8,13 +8,13 @@ export default function CursosScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.mainText}>
-        LOS CURSOS ESTARAN
+        LOS CURSOS ESTARÁN
       </Text>
       <Text style={styles.mainText}>
         DISPONIBLES
       </Text>
       <Text style={styles.mainText}>
-        PROXIMAMENTE
+        PRÓXIMAMENTE
       </Text>
       
       <Image source={PomyTrabajando} style={styles.pomyImage} />

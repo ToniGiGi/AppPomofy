@@ -10,15 +10,29 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 
-// --- Importamos los Modales ---
+// --- Imports de Modales ---
 import PreferencesModal from '../components/PreferencesModal';
-import EditProfileModal from '../components/EditProfileModal'; // <-- ¡NUEVO!
+import EditProfileModal from '../components/EditProfileModal';
+import NotificationsModal from '../components/NotificationsModal';
+import SocialsModal from '../components/SocialsModal';
+import ThemeModal from '../components/ThemeModal';
+import PrivacyModal from '../components/PrivacyModal';
+import SubscriptionModal from '../components/SubscriptionModal';
+import HelpModal from '../components/HelpModal';
+import SuggestionModal from '../components/SuggestionModal'; // <-- ¡NUEVO!
 
 export default function ConfigScreen() {
   
   // Estados para controlar los modales
   const [preferencesVisible, setPreferencesVisible] = useState(false);
-  const [editProfileVisible, setEditProfileVisible] = useState(false); // <-- ¡NUEVO!
+  const [editProfileVisible, setEditProfileVisible] = useState(false);
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [socialsVisible, setSocialsVisible] = useState(false);
+  const [themeVisible, setThemeVisible] = useState(false);
+  const [privacyVisible, setPrivacyVisible] = useState(false);
+  const [subscriptionVisible, setSubscriptionVisible] = useState(false);
+  const [helpVisible, setHelpVisible] = useState(false);
+  const [suggestionVisible, setSuggestionVisible] = useState(false); // <-- ¡NUEVO!
 
   const renderOption = (text, customOnPress) => (
     <TouchableOpacity 
@@ -42,21 +56,20 @@ export default function ConfigScreen() {
         <Text style={styles.sectionTitle}>Cuenta</Text>
         
         {renderOption('Preferencias', () => setPreferencesVisible(true))}
-        
-        {/* --- CONECTAMOS PERFIL --- */}
         {renderOption('Perfil', () => setEditProfileVisible(true))} 
-        
-        {renderOption('Notificaciones')}
-        {renderOption('Redes sociales')}
-        {renderOption('Tema')}
-        {renderOption('Ajustes de privacidad')}
+        {renderOption('Notificaciones', () => setNotificationsVisible(true))}
+        {renderOption('Redes sociales', () => setSocialsVisible(true))}
+        {renderOption('Tema', () => setThemeVisible(true))}
+        {renderOption('Ajustes de privacidad', () => setPrivacyVisible(true))}
 
         <Text style={styles.sectionTitle}>Suscripción</Text>
-        {renderOption('Escoge un plan')}
+        {renderOption('Escoge un plan', () => setSubscriptionVisible(true))}
 
         <Text style={styles.sectionTitle}>Soporte</Text>
-        {renderOption('Centro de ayuda')}
-        {renderOption('Sugerencias')}
+        {renderOption('Centro de ayuda', () => setHelpVisible(true))}
+        
+        {/* --- Conectamos Sugerencias --- */}
+        {renderOption('Sugerencias', () => setSuggestionVisible(true))}
 
       </ScrollView>
 
@@ -65,10 +78,38 @@ export default function ConfigScreen() {
         visible={preferencesVisible} 
         onClose={() => setPreferencesVisible(false)} 
       />
-      
       <EditProfileModal 
         visible={editProfileVisible} 
         onClose={() => setEditProfileVisible(false)} 
+      />
+      <NotificationsModal
+        visible={notificationsVisible}
+        onClose={() => setNotificationsVisible(false)}
+      />
+      <SocialsModal
+        visible={socialsVisible}
+        onClose={() => setSocialsVisible(false)}
+      />
+      <ThemeModal
+        visible={themeVisible}
+        onClose={() => setThemeVisible(false)}
+      />
+      <PrivacyModal
+        visible={privacyVisible}
+        onClose={() => setPrivacyVisible(false)}
+      />
+      <SubscriptionModal
+        visible={subscriptionVisible}
+        onClose={() => setSubscriptionVisible(false)}
+      />
+      <HelpModal
+        visible={helpVisible}
+        onClose={() => setHelpVisible(false)}
+      />
+      {/* --- ¡NUEVO MODAL! --- */}
+      <SuggestionModal
+        visible={suggestionVisible}
+        onClose={() => setSuggestionVisible(false)}
       />
 
     </SafeAreaView>

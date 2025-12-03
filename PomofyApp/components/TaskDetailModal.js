@@ -10,17 +10,17 @@ import {
 } from 'react-native';
 import Animated, { ZoomIn, FadeOut } from 'react-native-reanimated';
 
-// Recibimos 'onDelete'
 export default function TaskDetailModal({ task, visible, onClose, onEdit, onDelete }) {
   
   if (!task || !visible) return null;
 
+  // --- CAMBIO AQUÍ ---
+  // Simplificamos esta función. Ya no cierra ni espera.
+  // Solo le avisa al padre que queremos editar.
   const handleEditPress = () => {
-    onClose();
-    setTimeout(() => {
-        onEdit(task);
-    }, 100);
+    onEdit(task); 
   };
+  // -------------------
 
   const handleDelete = () => {
     Alert.alert(
@@ -32,8 +32,6 @@ export default function TaskDetailModal({ task, visible, onClose, onEdit, onDele
           text: 'Eliminar', 
           style: 'destructive', 
           onPress: () => {
-            // --- ¡AQUÍ ESTÁ EL CAMBIO! ---
-            // Llamamos a la función real de borrar
             if (onDelete) {
                 onDelete(task.id);
             }
@@ -50,7 +48,11 @@ export default function TaskDetailModal({ task, visible, onClose, onEdit, onDele
       visible={true}
       onRequestClose={onClose}
     >
-      <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={onClose}>
+      <TouchableOpacity 
+        style={styles.modalBackdrop} 
+        activeOpacity={1} 
+        onPress={onClose} 
+      >
         <Animated.View
             entering={ZoomIn.springify().damping(20).stiffness(300).mass(0.5)}
             exiting={FadeOut.duration(150)}

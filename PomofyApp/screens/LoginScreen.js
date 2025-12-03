@@ -1,4 +1,4 @@
-import React, { useState } from 'react'; 
+import React, { useState, useEffect } from 'react'; 
 import { 
   StyleSheet, 
   Text, 
@@ -7,82 +7,95 @@ import {
   TextInput, 
   TouchableOpacity, 
   Alert,
-  Modal, // Para la ventana emergente
-  Pressable // Para los botones del modal
+  Modal, 
+  Pressable 
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import PomySaludando from '../assets/pomysaludo.png';
 
-// MODIFICADO: La pantalla ahora recibe la prop "navigation"
+// 1. Importamos el controlador de Usuarios
+import { UsersController } from '../controllers/UsersController';
+
 export default function LoginScreen({ navigation }) {
 
-  // Estados para el login
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Estados para el Modal
+  // Estados para el Modal de recuperación (sin cambios)
   const [modalVisible, setModalVisible] = useState(false);
   const [recoveryEmail, setRecoveryEmail] = useState(''); 
   
+  // --- 2. INICIALIZACIÓN DE LA BASE DE DATOS (SEED) ---
+  useEffect(() => {
+    const setupDatabase = async () => {
+      try {
+        // A) Crear tabla
+        await UsersController.initTable();
+        // B) Insertar usuario maestro (Tony)
+        // "INSERT OR IGNORE" en el controlador evita duplicados
+        await UsersController.registerUser('tony@gmail.com', '12345');
+        console.log('Base de datos de usuarios lista. Usuario Tony creado.');
+      } catch (e) {
+        console.error('Error DB Usuarios:', e);
+      }
+    };
+    setupDatabase();
+  }, []);
+
   const handleForgotPassword = () => {
     Alert.alert(
       'Instrucciones Enviadas', 
       `Si existe una cuenta con ${recoveryEmail}, recibirás un correo.`
     );
-    setModalVisible(false); // Cierra el modal
-    setRecoveryEmail(''); // Limpia el input del modal
+    setModalVisible(false); 
+    setRecoveryEmail(''); 
   };
 
-  // Función de validación de Email
   const validateEmail = (email) => {
     const re = /\S+@\S+\.\S+/;
     return re.test(email);
   };
 
-  // --- FUNCIÓN DE LOGIN MODIFICADA ---
-  const handleLogin = () => {
+  // --- 3. FUNCIÓN DE LOGIN REAL ---
+  const handleLogin = async () => {
     
-    // 1. Verificación de campos vacíos
-    if (!email && !password) {
-      Alert.alert('Error', 'No puedes dejar los campos vacíos');
-      return; 
-    }
-
-    // 2. Verificación de correo vacío
-    if (!email) {
-      Alert.alert('Error', 'Por favor ingresa un correo');
+    // Validaciones básicas (Frontend)
+    if (!email || !password) {
+      Alert.alert('Error', 'Por favor ingresa correo y contraseña');
       return;
     }
 
-    // 3. Verificación de contraseña vacía
-    if (!password) {
-      Alert.alert('Error', 'Por favor ingresa una contraseña');
-      return;
-    }
-
-    // 4. Verificación de formato de correo válido
     if (!validateEmail(email)) {
       Alert.alert('Error', 'Por favor, ingresa un correo valido');
       return;
     }
 
-    // --- ¡CAMBIO IMPORTANTE! ---
-    // Si todo pasa, en lugar de una alerta, navegamos a la app principal
-    // Usamos "replace" para que el usuario no pueda "volver" al Login
-    navigation.replace('MainApp');
+    // Validación de Base de Datos (Backend Local)
+    try {
+      const user = await UsersController.loginUser(email, password);
+      
+      if (user) {
+        // ¡ÉXITO! Encontramos al usuario
+        // console.log('Usuario logueado:', user); // Para debug
+        navigation.replace('MainApp'); // Entramos a la app
+      } else {
+        // FRACASO. No existe o la contraseña está mal
+        Alert.alert('Error', 'Correo o contraseña incorrectos.');
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Ocurrió un problema al intentar iniciar sesión.');
+    }
   };
 
   return (
     <View style={styles.container}>
 
-      {/* --- Modal de Recuperación de Contraseña --- */}
+      {/* Modal Recuperación (Sin cambios) */}
       <Modal
         animationType="slide"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={() => {
-          setModalVisible(!modalVisible);
-        }}
+        onRequestClose={() => setModalVisible(!modalVisible)}
       >
         <View style={styles.modalCenteredView}>
           <View style={styles.modalView}>
@@ -117,12 +130,11 @@ export default function LoginScreen({ navigation }) {
           </View>
         </View>
       </Modal>
-      {/* --- FIN DEL MODAL --- */}
 
-
-      {/* --- Contenido principal del Login --- */}
+      {/* UI Principal */}
       <Image source={PomySaludando} style={styles.logo} />
       <Text style={styles.title}>POMOFY</Text>
+      
       <View style={styles.inputContainer}>
         <View style={styles.inputWithIcon}>
           <MaterialIcons name="email" size={24} color="#555" style={styles.icon} />
@@ -133,6 +145,7 @@ export default function LoginScreen({ navigation }) {
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
+            autoCapitalize="none" // Importante para emails
           />
         </View>
         <View style={styles.inputWithIcon}>
@@ -148,20 +161,17 @@ export default function LoginScreen({ navigation }) {
         </View>
       </View>
       
-      {/* Botón para abrir el Modal */}
       <TouchableOpacity onPress={() => setModalVisible(true)}> 
         <Text style={styles.forgotPassword}>¿Olvidaste tu contraseña?</Text>
       </TouchableOpacity>
 
-      {/* Botón de Iniciar Sesión (lleva a MainApp) */}
       <TouchableOpacity 
         style={styles.loginButton} 
-        onPress={handleLogin}
+        onPress={handleLogin} // Llama a nuestra nueva función
       >
         <Text style={styles.loginButtonText}>Iniciar sesión</Text>
       </TouchableOpacity>
       
-      {/* Botón de Registrarse (lleva a Registro) */}
       <TouchableOpacity onPress={() => navigation.navigate('Registro')}>
         <Text style={styles.registerButton}>Registrarse</Text>
       </TouchableOpacity>
@@ -170,7 +180,7 @@ export default function LoginScreen({ navigation }) {
   );
 }
 
-// --- HOJA DE ESTILOS COMPLETA ---
+// --- ESTILOS (Sin cambios) ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -239,7 +249,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  // --- Estilos del Modal ---
+  // Estilos Modal
   modalCenteredView: {
     flex: 1,
     justifyContent: 'center',
@@ -254,10 +264,7 @@ const styles = StyleSheet.create({
     padding: 25,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
